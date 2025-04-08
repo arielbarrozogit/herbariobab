@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escáner de Código de Barras</title>
+
+    <!-- Librerías -->
+    <script src="https://unpkg.com/quagga"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js"></script>
+
+    <style>
+        #mensaje-escaneo {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0,0,0,0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 20px;
+            text-align: center;
+            z-index: 100;
+        }
+
+        video, #reader {
+            margin: 20px auto;
+            display: block;
+            max-width: 90%;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Escáner de Código de Barras</h1>
+
+    <!-- ✅ Escáner para celular -->
+    <div id="reader" style="width: 300px;"></div>
+
+    <!-- ✅ Escáner para PC -->
+    <video id="scanner-preview" autoplay playsinline></video>
+
+    <div id="scanner-container"></div>
+
+    <!-- ✅ Mensaje emergente -->
+    <div id="mensaje-escaneo">
+        📸 Código escaneado: <span id="codigo-escaneado"></span> <br>
+        <button onclick="cerrarMensaje()">OK</button>
+    </div>
+
+    <!-- ✅ Script -->
+    <script>
+        function esCelular() {
+            return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        }
+
+        function mostrarCodigo(codigo) {
+            document.getElementById('codigo-escaneado').textContent = codigo;
+            document.getElementById('mensaje-escaneo').style.display = 'block';
+
+            // 👉 Redirigir automáticamente (si querés):
+            // window.location.href = `/specimen/${codigo}`;
+        }
+
+        function cerrarMensaje() {
+            document.getElementById('mensaje-escaneo').style.display = 'none';
+            location.reload();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('scanner-preview');
+
+            if (esCelular()) {
+                // 📱 Usar html5-qrcode en celular
+                video.style.display = 'none';
+                const qrCodeScanner = new Html5Qrcode("reader");
+                qrCodeScanner.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: 250 },
+                    (decodedText) => {
+                        qrCodeScanner.stop();
+                        mostrarCodigo(decodedText);
+                    },
+                    (errorMessage) => {
+                        console.log("No detectado:", errorMessage);
+                    }
+                ).catch((err) => {
+                    console.error("No se pudo iniciar cámara:", err);
+                });
+
+            } else {
+                // 💻 Usar Quagga en PC
+                document.getElementById('reader').style.display = 'none';
+
+                Quagga.init({
+                    inputStream: {
+                        name: "Live",
+                        type: "LiveStream",
+                        target: video,
+                        constraints: {
+                            width: 640,
+                            height: 480,
+                            facingMode: "environment"
+                        }
+                    },
+                    decoder: {
+                        readers: ["code_128_reader", "ean_reader", "ean_8_reader"]
+                    }
+                }, function (err) {
+                    if (err) {
+                        console.error(err);
+                        return;
+                    }
+                    Quagga.start();
+                });
+
+                Quagga.onDetected(function (result) {
+                    const codigo = result.codeResult.code;
+                    Quagga.stop();
+                    mostrarCodigo(codigo);
+                });
+            }
+        });
+    </script>
+
+</body>
+</html>
